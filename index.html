@@ -664,18 +664,19 @@ borrow | ödünç almak | Can I ___ your pen? | Kalemini ödünç alabilir miyim
 /* ---------------- teacher sync ---------------- */
 const SYNC_API='https://script.google.com/macros/s/AKfycbzqihr2OdBdbFS4eRVl0dhsO-9Mo7UCjFnEFuT-rei-X3ViFmr42rJ2c9iQ5jMLGmYkMw/exec';
 const SYNC_STUDENT_DEFAULT='arseniy';
+const SYNC_SLOT='sync_student_'+SYNC_STUDENT_DEFAULT;
 function syncCfg(){
   try{
     const h=location.hash||'';
     if(h.indexOf('k=')>-1){
       const p=new URLSearchParams(h.replace(/^#/,''));
       if(p.get('k')) localStorage.setItem('sync_key',p.get('k'));
-      localStorage.setItem('sync_student', p.get('s')||SYNC_STUDENT_DEFAULT);
+      localStorage.setItem(SYNC_SLOT, p.get('s')||SYNC_STUDENT_DEFAULT);
       history.replaceState(null,'',location.pathname);
     }
   }catch(e){}
   return {key:localStorage.getItem('sync_key'),
-          student:localStorage.getItem('sync_student')||SYNC_STUDENT_DEFAULT};
+          student:localStorage.getItem(SYNC_SLOT)||SYNC_STUDENT_DEFAULT};
 }
 async function syncPull(){
   const c=syncCfg(); if(!c.key) return 0;
