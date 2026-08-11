@@ -111,6 +111,15 @@ textarea:focus{border-color:var(--accent)}
   color:var(--accent2);margin:22px 0 10px}
 .note{font-size:13px;color:var(--dim);line-height:1.6;margin:8px 0 12px}
 code{background:var(--card2);padding:2px 6px;border-radius:6px;font-size:12.5px}
+
+.synctoast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + var(--safe));
+  background:var(--accent);color:#fff;font-weight:650;font-size:14.5px;padding:13px 20px;
+  border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:200;max-width:92%;
+  text-align:center;animation:pop .35s}
+.noteitem{background:var(--card);border:1px solid var(--accent);border-radius:14px;
+  padding:14px 16px;margin-bottom:10px;font-size:14px;line-height:1.6;white-space:pre-wrap}
+.noteitem b{color:var(--accent2);display:block;margin-bottom:6px;font-size:12px;
+  letter-spacing:.8px;text-transform:uppercase}
 canvas#cf{position:fixed;inset:0;pointer-events:none;z-index:99}
 .hidden{display:none!important}
 .pop{animation:pop .35s}
@@ -468,6 +477,7 @@ function after(ok,close){
 function quit(){ if(confirm('Turu bitirmek istiyor musun?')) home(); }
 
 function finish(){
+  syncPush();
   const done=Q.length;
   const hit=S.doneCount>=GOAL;
   if(hit)confetti();
@@ -498,7 +508,12 @@ function listView(){
     <div class="brand" style="font-size:17px">Kelimelerim (${S.deck.length})</div>
     <button class="iconbtn" onclick="view('settings')">⚙️</button></div>
     <div class="note">Yeşil noktalar hafızandaki gücü gösterir. 5 nokta = artık unutmuyorsun 💪</div>
+    ${notesHTML()}
     ${items}`;
+}
+function notesHTML(){
+  if(!S.notes||!S.notes.length) return '';
+  return S.notes.map(function(n){return '<div class="noteitem"><b>'+NOTES_TITLE+'</b>'+esc(n.text)+'</div>';}).join('');
 }
 
 /* ---------- SETTINGS / TEACHER CODE ---------- */
@@ -645,7 +660,79 @@ borrow | ödünç almak | Can I ___ your pen? | Kalemini ödünç alabilir miyim
   <div style="height:24px"></div>`;
 }
 
-load(); home();
+
+/* ---------------- teacher sync ---------------- */
+const SYNC_API='https://script.google.com/macros/s/AKfycbzqihr2OdBdbFS4eRVl0dhsO-9Mo7UCjFnEFuT-rei-X3ViFmr42rJ2c9iQ5jMLGmYkMw/exec';
+const SYNC_STUDENT_DEFAULT='arseniy';
+function syncCfg(){
+  try{
+    const h=location.hash||'';
+    if(h.indexOf('k=')>-1){
+      const p=new URLSearchParams(h.replace(/^#/,''));
+      if(p.get('k')) localStorage.setItem('sync_key',p.get('k'));
+      localStorage.setItem('sync_student', p.get('s')||SYNC_STUDENT_DEFAULT);
+      history.replaceState(null,'',location.pathname);
+    }
+  }catch(e){}
+  return {key:localStorage.getItem('sync_key'),
+          student:localStorage.getItem('sync_student')||SYNC_STUDENT_DEFAULT};
+}
+async function syncPull(){
+  const c=syncCfg(); if(!c.key) return 0;
+  const r=await fetch(SYNC_API+'?key='+encodeURIComponent(c.key)+'&action=pull&student='+encodeURIComponent(c.student));
+  const d=await r.json(); if(!d||!d.ok) return 0;
+  if(!S.notes) S.notes=[];
+  let added=0, changed=false;
+  (d.items||[]).forEach(function(it){
+    if(it.type==='note'){
+      if(it.deleted){ const b=S.notes.length; S.notes=S.notes.filter(n=>n.id!==it.id); if(S.notes.length!==b) changed=true; }
+      else if(!S.notes.some(n=>n.id===it.id)){ S.notes.push({id:it.id,text:String(it.note||'')}); changed=true; }
+      return;
+    }
+    if(!it.w) return;
+    const idx=S.deck.findIndex(x=>String(x.w).toLowerCase()===String(it.w).toLowerCase());
+    if(it.deleted){
+      if(idx>-1){ delete S.words[S.deck[idx].w]; S.deck.splice(idx,1); changed=true; }
+    } else if(idx>-1){
+      const d0=S.deck[idx];
+      if(it.tr&&it.tr!==d0.tr){d0.tr=it.tr;changed=true;}
+      if(it.ex&&it.ex!==d0.ex){d0.ex=it.ex;changed=true;}
+      if(it.exTr&&it.exTr!==d0.exTr){d0.exTr=it.exTr;changed=true;}
+    } else {
+      S.deck.push({w:it.w,tr:it.tr||'',ex:it.ex||'',exTr:it.exTr||''});
+      S.words[it.w]={box:0,due:0,seen:0,wrong:0}; added++; changed=true;
+    }
+  });
+  if(changed) save();
+  return added;
+}
+function syncPush(){
+  const c=syncCfg(); if(!c.key) return;
+  try{
+    fetch(SYNC_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({key:c.key,action:'push',student:c.student,
+        streak:S.streak,xp:S.xp,learned:learnedCount(),deck:S.deck.length,
+        progress:{words:S.words,deck:S.deck.map(function(w){return {w:w.w,tr:w.tr};})}})}).catch(function(){});
+  }catch(e){}
+}
+function syncToast(n){
+  const d=document.createElement('div');
+  d.className='synctoast';
+  d.textContent='🎁 '+'Öğretmenin '+n+' yeni kelime ekledi';
+  document.body.appendChild(d);
+  setTimeout(function(){ d.remove(); },8000);
+}
+async function syncNow(){
+  if(!navigator.onLine) return;
+  try{
+    const added=await syncPull();
+    if(added>0){ syncToast(added); home(); }
+    syncPush();
+  }catch(e){}
+}
+const NOTES_TITLE='Öğretmeninden not';
+
+load(); home(); syncNow();
 
 /* ---- offline support ---- */
 if('serviceWorker' in navigator){
