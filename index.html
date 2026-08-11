@@ -318,6 +318,7 @@ function home(){
     <div class="stat"><b>${learningCount()}</b><span>öğreniliyor</span></div>
     <div class="stat"><b>${pend}</b><span>bugün tekrar</span></div>
   </div>
+  ${(S.notes&&S.notes.length)?`<button class="btn sec" style="width:100%;margin-bottom:10px" onclick="view('notes')">${NT.home}${notesDue().length?' \u00b7 '+notesDue().length:''}</button>`:''}
   <div class="row">
     <button class="btn sec" onclick="view('list')">📚 Kelimelerim</button>
     <button class="btn sec" onclick="view('settings')">⚙️ Ayarlar</button>
@@ -499,7 +500,7 @@ function finish(){
 }
 
 /* ---------- LIST ---------- */
-function view(v){ if(v==='list')listView(); else if(v==='settings')settingsView(); else home(); }
+function view(v){ if(v==='list')listView(); else if(v==='settings')settingsView(); else if(v==='notes')notesView(); else home(); }
 function listView(){
   const items=S.deck.map(w=>{const b=S.words[w.w].box;
     return `<div class="witem"><div><div class="w">${esc(w.w)}</div><div class="t">${esc(w.tr)}</div></div>
@@ -660,6 +661,64 @@ borrow | ödünç almak | Can I ___ your pen? | Kalemini ödünç alabilir miyim
   <div style="height:24px"></div>`;
 }
 
+
+const NT={title:'Dilbilgisi notlar\u0131', label:'\u00d6\u011fretmeninden not', dueTag:'tekrar',
+  reviewBtn:function(n){return n+' notu tekrar et';},
+  allDone:'\u2705 Hepsi tamam. \u00d6\u011fretmenin yeni not g\u00f6nderince burada olacak.',
+  empty:'Hen\u00fcz not yok. \u00d6\u011fretmenin dersten sonra g\u00f6nderecek.',
+  gotIt:'Anlad\u0131m', again:'Yak\u0131nda tekrar g\u00f6ster', home:'\ud83d\udcd8 Dilbilgisi notlar\u0131'};
+
+/* ---------------- grammar notes ---------------- */
+const NOTE_INTERVALS=[0,1,3,7,16,30];
+function noteState(id){
+  if(!S.noteState) S.noteState={};
+  if(!S.noteState[id]) S.noteState[id]={box:0,due:0,seen:0};
+  return S.noteState[id];
+}
+function notesDue(){
+  if(!S.notes||!S.notes.length) return [];
+  const d=dayNum();
+  return S.notes.filter(function(n){ return noteState(n.id).due<=d; });
+}
+function notesView(){
+  const all=S.notes||[], due=notesDue().length, d=dayNum();
+  app.innerHTML=`<div class="topbar"><button class="iconbtn" onclick="home()">←</button>
+    <div class="brand" style="font-size:17px">${NT.title} (${all.length})</div>
+    <button class="iconbtn" onclick="view('settings')">⚙️</button></div>
+    ${all.length ? (due
+        ? `<button class="btn" onclick="startNoteReview()">${NT.reviewBtn(due)}</button><div style="height:16px"></div>`
+        : `<div class="hint" style="margin-top:0;margin-bottom:16px">${NT.allDone}</div>`)
+      : ''}
+    ${all.length ? all.map(function(n){
+        const st=noteState(n.id), isDue=st.due<=d;
+        return `<div class="noteitem"${isDue?'':' style="opacity:.7"'}><b>${NT.label}${isDue?' · '+NT.dueTag:''}</b>${esc(n.text)}</div>`;
+      }).join('') : `<div class="hint">${NT.empty}</div>`}`;
+}
+let NQ=[], nqi=0;
+function startNoteReview(){
+  NQ=notesDue(); if(!NQ.length) NQ=(S.notes||[]).slice();
+  if(!NQ.length) return notesView();
+  nqi=0; renderNote();
+}
+function renderNote(){
+  if(nqi>=NQ.length){ save(); syncPush(); return notesView(); }
+  const n=NQ[nqi], p=Math.round(nqi/NQ.length*100);
+  app.innerHTML=`<div class="sesstop"><button class="x" onclick="notesView()">✕</button>
+    <div style="flex:1"><div class="pbar"><i style="width:${p}%"></i></div></div>
+    <div class="muted" style="font-size:13px;font-weight:700">${nqi+1}/${NQ.length}</div></div>
+    <div class="noteitem pop" style="font-size:15px"><b>${NT.label}</b>${esc(n.text)}</div>
+    <div style="height:18px"></div>
+    <button class="btn" onclick="rateNote(true)">${NT.gotIt}</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost" onclick="rateNote(false)">${NT.again}</button>`;
+}
+function rateNote(ok){
+  const st=noteState(NQ[nqi].id); st.seen++;
+  if(ok){ st.box=Math.min(st.box+1,NOTE_INTERVALS.length-1); S.xp+=5; }
+  else   { st.box=Math.max(0,st.box-1); }
+  st.due=dayNum()+NOTE_INTERVALS[st.box];
+  save(); nqi++; renderNote();
+}
 
 /* ---------------- teacher sync ---------------- */
 const SYNC_API='https://script.google.com/macros/s/AKfycbzqihr2OdBdbFS4eRVl0dhsO-9Mo7UCjFnEFuT-rei-X3ViFmr42rJ2c9iQ5jMLGmYkMw/exec';
