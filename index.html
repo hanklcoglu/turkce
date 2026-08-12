@@ -720,6 +720,16 @@ function parseTask(body){
       continue;
     }
 
+    if(/^GAP!\s+/i.test(line)){
+      const rest = line.replace(/^GAP!\s+/i,'');
+      const bar = rest.lastIndexOf('|');
+      const sentence = (bar > -1 ? rest.slice(0,bar) : rest).trim();
+      const answers = (bar > -1 ? rest.slice(bar+1) : '').split('/').map(s=>s.trim()).filter(Boolean);
+      items.push({ kind:'gap', id:'q'+(++n), q: sentence, answers: answers, strict: true });
+      i++;
+      continue;
+    }
+
     if(/^GAP\s+/i.test(line)){
       const rest = line.replace(/^GAP\s+/i,'');
       const bar = rest.lastIndexOf('|');
@@ -757,6 +767,10 @@ function gradeItem(it, ans){
   if(it.kind === 'gap'){
     if(!ans) return false;
     if(!it.answers || !it.answers.length) return null;
+    if(it.strict){
+      const tidy = function(s){ return String(s||'').trim().replace(/\s+/g,' '); };
+      return it.answers.some(function(a){ return tidy(ans) === tidy(a); });
+    }
     return it.answers.some(function(a){ return checkTyped(ans, a) !== 'no'; });
   }
   return null;
