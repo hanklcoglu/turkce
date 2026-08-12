@@ -120,6 +120,37 @@ code{background:var(--card2);padding:2px 6px;border-radius:6px;font-size:12.5px}
   padding:14px 16px;margin-bottom:10px;font-size:14px;line-height:1.6;white-space:pre-wrap}
 .noteitem b{color:var(--accent2);display:block;margin-bottom:6px;font-size:12px;
   letter-spacing:.8px;text-transform:uppercase}
+
+.taskcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;
+  margin-bottom:10px;cursor:pointer;transition:.15s}
+.taskcard:active{transform:scale(.99)}
+.taskcard.ok{border-color:var(--ok)} .taskcard.mid{border-color:var(--gold)}
+.taskcard .tt{font-weight:800;font-size:16.5px}
+.taskcard .ts{font-size:12.5px;color:var(--dim);margin-top:3px}
+.taskcard .tstatus{font-size:12.5px;font-weight:700;margin-top:8px;color:var(--dim)}
+.taskcard .tstatus.ok{color:var(--ok)} .taskcard .tstatus.mid{color:var(--gold)}
+.passage{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;
+  font-size:15.5px;line-height:1.75;white-space:pre-wrap;margin-bottom:14px}
+.qblock{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.qblock.wrong{border-color:var(--bad)}
+.qh{font-weight:700;font-size:15px;margin-bottom:10px;line-height:1.5}
+.mk{font-weight:900;margin-left:4px}
+.mk.ok{color:var(--ok)} .mk.bad{color:var(--bad)} .mk.pend{color:var(--dim)}
+.opt.sel{border-color:var(--accent);background:rgba(124,92,255,.16)}
+.opt:disabled{opacity:.85}
+.qblock .opt{padding:12px 14px;font-size:15px;border-radius:12px;margin-bottom:7px;width:100%;display:block}
+.gapline{font-size:16px;line-height:2.1}
+.gapin{background:var(--card2);border:1.5px solid var(--accent);border-radius:9px;color:var(--txt);
+  font:inherit;padding:5px 9px;min-width:110px;outline:none}
+.gapin:disabled{border-color:var(--line)}
+.wrin{width:100%;min-height:110px;background:var(--card2);border:1px solid var(--line);border-radius:11px;
+  color:var(--txt);font:inherit;padding:11px;outline:none;resize:vertical;line-height:1.6}
+.wrin:focus{border-color:var(--accent)}
+.scorecard{background:linear-gradient(150deg,#2a1f52,#1c1c27);border:1px solid var(--line);
+  border-radius:18px;padding:18px;text-align:center;margin-bottom:16px}
+.scorecard .sbig{font-size:32px;font-weight:800}
+.scorecard .ssub{font-size:13px;color:var(--ok);font-weight:700;margin-top:2px}
+.scorecard .ssub2{font-size:12.5px;color:var(--dim);margin-top:8px;line-height:1.5}
 canvas#cf{position:fixed;inset:0;pointer-events:none;z-index:99}
 .hidden{display:none!important}
 .pop{animation:pop .35s}
@@ -318,6 +349,7 @@ function home(){
     <div class="stat"><b>${learningCount()}</b><span>öğreniliyor</span></div>
     <div class="stat"><b>${pend}</b><span>bugün tekrar</span></div>
   </div>
+  ${taskList().length?`<button class="btn sec" style="width:100%;margin-bottom:10px" onclick="view('tasks')">${TS.home}${tasksOpen().length?' \u00b7 '+tasksOpen().length:''}</button>`:''}
   ${(S.notes&&S.notes.length)?`<button class="btn sec" style="width:100%;margin-bottom:10px" onclick="view('notes')">${NT.home}${notesDue().length?' \u00b7 '+notesDue().length:''}</button>`:''}
   <div class="row">
     <button class="btn sec" onclick="view('list')">📚 Kelimelerim</button>
@@ -500,7 +532,7 @@ function finish(){
 }
 
 /* ---------- LIST ---------- */
-function view(v){ if(v==='list')listView(); else if(v==='settings')settingsView(); else if(v==='notes')notesView(); else home(); }
+function view(v){ if(v==='list')listView(); else if(v==='settings')settingsView(); else if(v==='notes')notesView(); else if(v==='tasks')tasksView(); else home(); }
 function listView(){
   const items=S.deck.map(w=>{const b=S.words[w.w].box;
     return `<div class="witem"><div><div class="w">${esc(w.w)}</div><div class="t">${esc(w.tr)}</div></div>
@@ -720,6 +752,243 @@ function rateNote(ok){
   save(); nqi++; renderNote();
 }
 
+const TS={title:'\u00d6devler', empty:'Hen\u00fcz \u00f6dev yok. \u00d6\u011fretmenin dersten sonra g\u00f6nderecek.',
+  questions:'soru', notStarted:'Ba\u015flanmad\u0131', started:'Devam ediyor', untitled:'\u00d6dev',
+  done:function(s,m){return 'G\u00f6nderildi \u00b7 '+s+'/'+m;},
+  overdue:'Gecikti', dueToday:'Bug\u00fcn son g\u00fcn', dueTomorrow:'Yar\u0131n son g\u00fcn',
+  dueIn:function(d){return d+' g\u00fcn kald\u0131';},
+  submit:'G\u00f6nder', submitted:'G\u00f6nderildi',
+  heldBack:'\u00d6\u011fretmenin cevaplar\u0131 derste seninle birlikte inceleyecek.',
+  autosave:'Cevaplar\u0131n yazd\u0131k\u00e7a kaydedilir \u2014 sonra devam edebilirsin.',
+  autoNote:function(n){return n+' soru otomatik kontrol edilir.';},
+  writeHere:'Cevab\u0131n\u0131 yaz\u2026',
+  confirmBlank:function(n){return n+' soru bo\u015f. Yine de g\u00f6nderilsin mi?';},
+  home:'\ud83d\udcdd \u00d6devler'};
+
+/* ================= assignments: shared parser + scoring ================= */
+/* Markup:
+     TEXT ... END          reading passage
+     Q question            multiple choice; options on following lines
+       - wrong             (- wrong, * correct)
+       * right
+     GAP sentence with ___ | answer            typed answer, / separates alternatives
+     WRITE prompt                              free writing, not auto-scored
+   Blank lines are ignored outside TEXT blocks.                                */
+
+function parseTask(body){
+  const lines = String(body||'').replace(/\r/g,'').split('\n');
+  const items = [];
+  let i = 0, n = 0;
+  while(i < lines.length){
+    const raw = lines[i], line = raw.trim();
+
+    if(/^TEXT\b/i.test(line)){
+      const buf = [];
+      i++;
+      while(i < lines.length && !/^END\b/i.test(lines[i].trim())){ buf.push(lines[i]); i++; }
+      i++;
+      items.push({ kind:'text', body: buf.join('\n').trim() });
+      continue;
+    }
+
+    if(/^Q\s+/i.test(line)){
+      const q = { kind:'mc', id:'q'+(++n), q: line.replace(/^Q\s+/i,'').trim(), opts:[], answer:-1 };
+      i++;
+      while(i < lines.length){
+        const o = lines[i].trim();
+        if(/^[-*]\s+/.test(o)){
+          if(o.charAt(0) === '*') q.answer = q.opts.length;
+          q.opts.push(o.replace(/^[-*]\s+/,'').trim());
+          i++;
+        } else break;
+      }
+      items.push(q);
+      continue;
+    }
+
+    if(/^GAP\s+/i.test(line)){
+      const rest = line.replace(/^GAP\s+/i,'');
+      const bar = rest.lastIndexOf('|');
+      const sentence = (bar > -1 ? rest.slice(0,bar) : rest).trim();
+      const answers = (bar > -1 ? rest.slice(bar+1) : '').split('/').map(s=>s.trim()).filter(Boolean);
+      items.push({ kind:'gap', id:'q'+(++n), q: sentence, answers: answers });
+      i++;
+      continue;
+    }
+
+    if(/^WRITE\s+/i.test(line)){
+      items.push({ kind:'write', id:'q'+(++n), q: line.replace(/^WRITE\s+/i,'').trim() });
+      i++;
+      continue;
+    }
+
+    i++;
+  }
+  return items;
+}
+
+function taskQuestions(items){
+  return items.filter(function(it){ return it.kind !== 'text'; });
+}
+function taskAutoMax(items){
+  return items.filter(function(it){ return it.kind === 'mc' || it.kind === 'gap'; }).length;
+}
+
+/* Grades one answer. Returns true / false / null (null = needs a human). */
+function gradeItem(it, ans){
+  if(it.kind === 'mc'){
+    if(ans === undefined || ans === null || ans === '') return false;
+    return Number(ans) === Number(it.answer);
+  }
+  if(it.kind === 'gap'){
+    if(!ans) return false;
+    if(!it.answers || !it.answers.length) return null;
+    return it.answers.some(function(a){ return checkTyped(ans, a) !== 'no'; });
+  }
+  return null;
+}
+
+function scoreTask(items, answers){
+  let score = 0, max = 0;
+  taskQuestions(items).forEach(function(it){
+    const g = gradeItem(it, answers ? answers[it.id] : undefined);
+    if(g === null) return;
+    max++;
+    if(g) score++;
+  });
+  return { score: score, max: max };
+}
+
+/* ---- task state helpers (student side) ---- */
+function taskState(id){
+  if(!S.tasks) S.tasks = {};
+  if(!S.tasks[id]) S.tasks[id] = { answers:{}, submittedAt:null, score:0, max:0 };
+  return S.tasks[id];
+}
+function taskList(){ return (S.taskDefs || []); }
+function tasksOpen(){
+  return taskList().filter(function(t){ return !taskState(t.id).submittedAt; });
+}
+function dueInDays(due){
+  if(!due) return null;
+  const d = new Date(due + 'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+  return Math.round((d.getTime() - new Date().setHours(0,0,0,0)) / 864e5);
+}
+
+/* ================= assignments: student UI ================= */
+
+function tasksView(){
+  const all = taskList();
+  app.innerHTML = `<div class="topbar"><button class="iconbtn" onclick="home()">←</button>
+    <div class="brand" style="font-size:17px">${TS.title}</div>
+    <button class="iconbtn" onclick="view('settings')">⚙️</button></div>
+    ${all.length ? all.map(function(t){
+      const st = taskState(t.id), items = parseTask(t.body), qn = taskQuestions(items).length;
+      const d = dueInDays(t.due);
+      let status, cls;
+      if(st.submittedAt){ status = TS.done(st.score, st.max); cls = 'ok'; }
+      else if(Object.keys(st.answers||{}).length){ status = TS.started; cls = 'mid'; }
+      else { status = TS.notStarted; cls = ''; }
+      const dueTxt = t.due ? (d===null ? '' : (d < 0 ? TS.overdue : d === 0 ? TS.dueToday : d === 1 ? TS.dueTomorrow : TS.dueIn(d))) : '';
+      return `<div class="taskcard ${cls}" onclick="openTask('${t.id}')">
+        <div class="tt">${esc(t.title || TS.untitled)}</div>
+        <div class="ts">${qn} ${TS.questions}${dueTxt ? ' · ' + dueTxt : ''}</div>
+        <div class="tstatus ${cls}">${status}</div>
+      </div>`;
+    }).join('') : `<div class="hint">${TS.empty}</div>`}`;
+}
+
+let curTask = null;
+
+function openTask(id){
+  const t = taskList().filter(function(x){ return x.id === id; })[0];
+  if(!t) return tasksView();
+  curTask = t;
+  renderTask();
+}
+
+function renderTask(){
+  const t = curTask, st = taskState(t.id), items = parseTask(t.body);
+  const done = !!st.submittedAt;
+  let qi = 0;
+
+  const blocks = items.map(function(it){
+    if(it.kind === 'text'){
+      return `<div class="passage">${esc(it.body)}</div>`;
+    }
+    qi++;
+    const a = st.answers ? st.answers[it.id] : undefined;
+    const g = done ? gradeItem(it, a) : undefined;
+    const mark = !done ? '' : (g === true ? '<span class="mk ok">✓</span>' : g === false ? '<span class="mk bad">✕</span>' : '<span class="mk pend">•</span>');
+
+    if(it.kind === 'mc'){
+      return `<div class="qblock${done && g===false ? ' wrong' : ''}">
+        <div class="qh">${qi}. ${esc(it.q)} ${mark}</div>
+        ${it.opts.map(function(o,ix){
+          const sel = String(a) === String(ix);
+          return `<button class="opt${sel?' sel':''}" ${done?'disabled':''} onclick="answer('${it.id}',${ix})">${esc(o)}</button>`;
+        }).join('')}
+      </div>`;
+    }
+    if(it.kind === 'gap'){
+      const parts = String(it.q).split('___');
+      return `<div class="qblock${done && g===false ? ' wrong' : ''}">
+        <div class="qh">${qi}. ${mark}</div>
+        <div class="gapline">${esc(parts[0]||'')}
+          <input class="gapin" ${done?'disabled':''} value="${esc(a||'')}"
+            oninput="answer('${it.id}', this.value)" autocomplete="off" autocorrect="off"
+            autocapitalize="none" spellcheck="false">${esc(parts.slice(1).join('___'))}</div>
+      </div>`;
+    }
+    return `<div class="qblock">
+      <div class="qh">${qi}. ${esc(it.q)} ${done?'<span class="mk pend">•</span>':''}</div>
+      <textarea class="wrin" ${done?'disabled':''} oninput="answer('${it.id}', this.value)"
+        placeholder="${TS.writeHere}">${esc(a||'')}</textarea>
+    </div>`;
+  }).join('');
+
+  const auto = taskAutoMax(items);
+  app.innerHTML = `<div class="topbar"><button class="iconbtn" onclick="tasksView()">←</button>
+    <div class="brand" style="font-size:16px">${esc(t.title || TS.untitled)}</div>
+    <div style="width:40px"></div></div>
+    ${done ? `<div class="scorecard">
+        <div class="sbig">${st.score} / ${st.max}</div>
+        <div class="ssub">${TS.submitted}</div>
+        <div class="ssub2">${TS.heldBack}</div>
+      </div>` : ''}
+    ${blocks}
+    ${done ? '' : `<div style="height:8px"></div>
+      <button class="btn" onclick="submitTask()">${TS.submit}</button>
+      <div class="hint" style="margin-top:10px">${TS.autosave}${auto ? ' ' + TS.autoNote(auto) : ''}</div>`}`;
+}
+
+function answer(qid, val){
+  const st = taskState(curTask.id);
+  if(st.submittedAt) return;
+  if(!st.answers) st.answers = {};
+  st.answers[qid] = val;
+  save();
+  if(typeof val === 'number') renderTask();
+}
+
+function submitTask(){
+  const t = curTask, st = taskState(t.id), items = parseTask(t.body);
+  const qs = taskQuestions(items);
+  const blank = qs.filter(function(it){
+    const a = st.answers ? st.answers[it.id] : undefined;
+    return a === undefined || a === null || String(a).trim() === '';
+  }).length;
+  if(blank && !confirm(TS.confirmBlank(blank))) return;
+  const r = scoreTask(items, st.answers);
+  st.score = r.score; st.max = r.max;
+  st.submittedAt = new Date().toISOString();
+  S.xp += 20;
+  save();
+  syncPush();
+  renderTask();
+}
+
 /* ---------------- teacher sync ---------------- */
 const SYNC_API='https://script.google.com/macros/s/AKfycbzqihr2OdBdbFS4eRVl0dhsO-9Mo7UCjFnEFuT-rei-X3ViFmr42rJ2c9iQ5jMLGmYkMw/exec';
 const SYNC_STUDENT_DEFAULT='arseniy';
@@ -737,13 +1006,26 @@ function syncCfg(){
   return {key:localStorage.getItem('sync_key'),
           student:localStorage.getItem(SYNC_SLOT)||SYNC_STUDENT_DEFAULT};
 }
+let NEW_TASKS=0;
 async function syncPull(){
   const c=syncCfg(); if(!c.key) return 0;
+  NEW_TASKS=0;
   const r=await fetch(SYNC_API+'?key='+encodeURIComponent(c.key)+'&action=pull&student='+encodeURIComponent(c.student));
   const d=await r.json(); if(!d||!d.ok) return 0;
   if(!S.notes) S.notes=[];
   let added=0, changed=false;
   (d.items||[]).forEach(function(it){
+    if(it.type==='task'){
+      if(!S.taskDefs) S.taskDefs=[];
+      const tx=S.taskDefs.findIndex(function(x){return x.id===it.id;});
+      if(it.deleted){ if(tx>-1){ S.taskDefs.splice(tx,1); changed=true; } }
+      else {
+        const def={id:it.id,title:it.w||'',due:it.tr||'',body:it.note||''};
+        if(tx>-1){ if(JSON.stringify(S.taskDefs[tx])!==JSON.stringify(def)){ S.taskDefs[tx]=def; changed=true; } }
+        else { S.taskDefs.push(def); changed=true; NEW_TASKS++; }
+      }
+      return;
+    }
     if(it.type==='note'){
       if(it.deleted){ const b=S.notes.length; S.notes=S.notes.filter(n=>n.id!==it.id); if(S.notes.length!==b) changed=true; }
       else if(!S.notes.some(n=>n.id===it.id)){ S.notes.push({id:it.id,text:String(it.note||'')}); changed=true; }
@@ -772,8 +1054,15 @@ function syncPush(){
     fetch(SYNC_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({key:c.key,action:'push',student:c.student,
         streak:S.streak,xp:S.xp,learned:learnedCount(),deck:S.deck.length,
-        progress:{words:S.words,deck:S.deck.map(function(w){return {w:w.w,tr:w.tr};})}})}).catch(function(){});
+        progress:{words:S.words,deck:S.deck.map(function(w){return {w:w.w,tr:w.tr};}),tasks:S.tasks||{}}})}).catch(function(){});
   }catch(e){}
+}
+function syncToast2(t){
+  const d=document.createElement('div');
+  d.className='synctoast';
+  d.textContent=t;
+  document.body.appendChild(d);
+  setTimeout(function(){ d.remove(); },8000);
 }
 function syncToast(n){
   const d=document.createElement('div');
@@ -787,6 +1076,7 @@ async function syncNow(){
   try{
     const added=await syncPull();
     if(added>0){ syncToast(added); home(); }
+    if(NEW_TASKS>0){ syncToast2(TS.home); home(); }
     syncPush();
   }catch(e){}
 }
