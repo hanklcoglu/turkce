@@ -580,65 +580,7 @@ function restoreBackup(){
   home();
 }
 /* öğretmen: öğrencinin ilerleme kodunu okur */
-function analyzeStudent(){
-  const v=document.getElementById('ain').value.trim(); if(!v)return;
-  let d; try{d=b64d(v)}catch(e){alert('Kod okunamadı.');return;}
-  if(!d||!d.words||!d.deck){alert('Bu bir ilerleme kodu değil.');return;}
-  const rows=d.deck.map(w=>{const s=d.words[w.w]||{box:0,seen:0,wrong:0};
-    return{w:w.w,tr:w.tr,box:s.box||0,seen:s.seen||0,wrong:s.wrong||0}});
-  const learned=rows.filter(r=>r.box>=4).length;
-  const learning=rows.filter(r=>r.seen>0&&r.box<4).length;
-  const untouched=rows.filter(r=>r.seen===0).length;
-  const weak=rows.filter(r=>r.seen>0).sort((a,b)=>a.box-b.box||b.wrong-a.wrong).slice(0,15);
-  document.getElementById('aout').innerHTML=`
-    <div class="stats"><div class="stat"><b>${learned}</b><span>öğrenildi</span></div>
-    <div class="stat"><b>${learning}</b><span>öğreniliyor</span></div>
-    <div class="stat"><b>${untouched}</b><span>hiç görmedi</span></div></div>
-    <div class="note">🔥 ${d.streak||0} günlük seri · ${d.xp||0} XP · son çalışma: ${esc(d.lastDay||'—')} · yedek tarihi: ${esc(d.at||'—')}</div>
-    <div class="sec-title">Derste tekrar edilecekler</div>
-    ${weak.length?weak.map(r=>`<div class="witem"><div><div class="w">${esc(r.w)}</div>
-      <div class="t">${esc(r.tr)} · ${r.wrong} hata / ${r.seen} deneme</div></div>
-      <div class="dots">${[1,2,3,4,5].map(i=>`<div class="dot ${r.box>=i?'on':''}"></div>`).join('')}</div></div>`).join('')
-      :'<div class="note">Henüz çalışılmış kelime yok.</div>'}`;
-}
 
-function parseLines(txt){
-  return txt.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
-    const p=l.split('|').map(x=>x.trim());
-    if(p.length<2)return null;
-    let ex=p[2]||'';
-    if(ex && ex.indexOf('___')===-1){
-      const re=new RegExp('\\b'+p[0].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
-      ex=re.test(ex)?ex.replace(re,'___'):ex;
-    }
-    return {w:p[0],tr:p[1],ex:ex,exTr:p[3]||''};
-  }).filter(Boolean);
-}
-function makeCode(){
-  const list=parseLines(document.getElementById('tin').value);
-  if(!list.length){alert('En az bir satır gir: kelime | türkçe | örnek cümle');return;}
-  const code=b64e(list);
-  const o=document.getElementById('tout');
-  o.value=code; o.classList.remove('hidden');
-  document.getElementById('tcopy').classList.remove('hidden');
-  document.getElementById('tinfo').textContent=list.length+' kelime hazır. Kodu kopyalayıp öğrencine gönder.';
-}
-function copyCode(){ copyEl('tout','tcopy','📋 Kodu kopyala'); }
-function applyCode(){
-  const v=document.getElementById('sin').value.trim();
-  if(!v)return;
-  let list; try{list=b64d(v)}catch(e){alert('Kod okunamadı. Kodun tamamını yapıştırdığından emin ol.');return;}
-  if(!Array.isArray(list)){alert('Kod geçersiz.');return;}
-  let added=0;
-  list.forEach(n=>{
-    const ex=S.deck.find(d=>d.w.toLowerCase()===String(n.w).toLowerCase());
-    if(ex){ex.tr=n.tr||ex.tr;ex.ex=n.ex||ex.ex;ex.exTr=n.exTr||ex.exTr;}
-    else{S.deck.push({w:n.w,tr:n.tr||'',ex:n.ex||'',exTr:n.exTr||''});
-         S.words[n.w]={box:0,due:0,seen:0,wrong:0};added++;}
-  });
-  save(); alert(added+' yeni kelime eklendi! 🎉 Toplam: '+S.deck.length);
-  home();
-}
 function resetAll(){
   if(!confirm('TÜM ilerleme silinecek. Emin misin?'))return;
   localStorage.removeItem(KEY);
@@ -649,44 +591,16 @@ function settingsView(){
   app.innerHTML=`<div class="topbar"><button class="iconbtn" onclick="home()">←</button>
     <div class="brand" style="font-size:17px">Ayarlar</div><div style="width:40px"></div></div>
 
-  <div class="sec-title">📩 Öğretmenimden kelime kodu geldi</div>
-  <div class="note">Öğretmeninin gönderdiği uzun kodu buraya yapıştır ve "Ekle"ye bas. İlerlemen kaybolmaz.</div>
-  <textarea id="sin" placeholder="SOZCUK1-..." style="min-height:90px"></textarea>
-  <div style="height:10px"></div>
-  <button class="btn" onclick="applyCode()">Kelimeleri ekle</button>
-
-  <div class="sec-title">💾 İlerlemeni yedekle</div>
-  <div class="note">Telefonu değiştirirsen ya da tarayıcı verilerini silersen ilerlemen kaybolmasın diye
-    ara sıra yedek al. Aynı kodu öğretmenine gönderirsen hangi kelimelerde zorlandığını görebilir.</div>
+  <div class="sec-title">💾 Yeni telefona geçerken</div>
+  <div class="note">Kelimelerin, serin ve ödevlerin bu telefonda saklanıyor. Telefon değiştirmeden ya da tarayıcı verilerini silmeden önce bir yedek kodu oluştur ve güvenli bir yerde sakla.</div>
   <button class="btn sec" onclick="makeBackup()">Yedek kodu oluştur</button>
   <div class="note" id="binfo"></div>
   <textarea id="bout" class="hidden" readonly style="min-height:80px;font-size:11px"></textarea>
   <button class="btn ghost hidden" id="bcopy" onclick="copyEl('bout','bcopy','📋 Yedeği kopyala')">📋 Yedeği kopyala</button>
   <div style="height:14px"></div>
-  <textarea id="bin" placeholder="YEDEK1-...  (geri yüklemek için buraya yapıştır)" style="min-height:80px"></textarea>
+  <textarea id="bin" placeholder="SAVE1-...  (yedeğini buraya yapıştır)" style="min-height:80px"></textarea>
   <div style="height:10px"></div>
   <button class="btn ghost" onclick="restoreBackup()">Yedeği geri yükle</button>
-
-  <div class="sec-title">👩‍🏫 Öğretmen paneli</div>
-  <div class="note">Her satıra bir kelime yaz:<br>
-    <code>kelime | İngilizcesi | örnek cümle | cümlenin çevirisi</code><br>
-    Cümlede kelimeyi <code>___</code> ile gizleyebilirsin (yazmazsan otomatik gizlenir).
-    Son iki bölüm isteğe bağlı ama örnek cümle en önemli kısım.</div>
-  <textarea id="tin" placeholder="until | -e kadar | I waited ___ six o'clock. | Saat altıya kadar bekledim.
-borrow | ödünç almak | Can I ___ your pen? | Kalemini ödünç alabilir miyim?"></textarea>
-  <div style="height:10px"></div>
-  <button class="btn sec" onclick="makeCode()">Kod oluştur</button>
-  <div class="note" id="tinfo"></div>
-  <textarea id="tout" class="hidden" readonly style="min-height:90px;font-size:11px"></textarea>
-  <button class="btn ghost hidden" id="tcopy" onclick="copyCode()">📋 Kodu kopyala</button>
-
-  <div class="sec-title">📊 Öğrenci ilerleme raporu</div>
-  <div class="note">Öğrencinin gönderdiği <code>YEDEK1-</code> kodunu yapıştır — hangi kelimelerde
-    takıldığını görürsün. Ders öncesi 10 saniyede ne tekrar edeceğine karar verirsin.</div>
-  <textarea id="ain" placeholder="YEDEK1-..." style="min-height:80px"></textarea>
-  <div style="height:10px"></div>
-  <button class="btn sec" onclick="analyzeStudent()">Raporu göster</button>
-  <div id="aout"></div>
 
   <div class="sec-title">⚠️ Sıfırla</div>
   <button class="btn ghost" onclick="resetAll()" style="color:var(--bad);border-color:var(--bad)">Tüm ilerlemeyi sıfırla</button>
