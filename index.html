@@ -1017,6 +1017,13 @@ async function syncPull(){
 }
 function syncPush(){
   const c=syncCfg(); if(!c.key) return;
+  /* an untouched device (the teacher opening a student link, a fresh install)
+     must never overwrite the student's progress on the server */
+  const T = S.tasks||{};
+  const touched = S.xp>0 || S.streak>0
+    || S.deck.some(function(w){ return S.words[w.w] && S.words[w.w].seen>0; })
+    || Object.keys(T).some(function(k){ return T[k] && (T[k].submittedAt || Object.keys(T[k].answers||{}).length>0); });
+  if(!touched) return;
   try{
     fetch(SYNC_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({key:c.key,action:'push',student:c.student,
