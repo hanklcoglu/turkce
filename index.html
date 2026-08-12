@@ -869,11 +869,24 @@ function taskList(){ return (S.taskDefs || []); }
 function tasksOpen(){
   return taskList().filter(function(t){ return !taskState(t.id).submittedAt; });
 }
-function dueInDays(due){
+function dueYMD(due){
   if(!due) return null;
-  const d = new Date(due + 'T00:00:00');
+  const s = String(due);
+  const plain = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(plain) return [ +plain[1], +plain[2]-1, +plain[3] ];
+  const d = new Date(s);
   if(isNaN(d.getTime())) return null;
-  return Math.round((d.getTime() - new Date().setHours(0,0,0,0)) / 864e5);
+  return [ d.getFullYear(), d.getMonth(), d.getDate() ];
+}
+function dueLabel(due){
+  const p = dueYMD(due);
+  if(!p) return '';
+  return p[0]+'-'+String(p[1]+1).padStart(2,'0')+'-'+String(p[2]).padStart(2,'0');
+}
+function dueInDays(due){
+  const p = dueYMD(due);
+  if(!p) return null;
+  return Math.round((new Date(p[0],p[1],p[2]).getTime() - new Date().setHours(0,0,0,0)) / 864e5);
 }
 
 /* ================= assignments: student UI ================= */
