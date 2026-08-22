@@ -1,8 +1,9 @@
 /* Türkçe Antrenörü service worker
    index.html: network-first (so a new build lands on the very next open),
    falling back to cache when offline or slow.
-   everything else: cache-first with a background refresh.                */
-const CACHE='tt-v2';
+   everything else: cache-first with a background refresh.
+   plus: shows push reminders and opens the right screen when tapped.     */
+const CACHE='tt-v3';
 const CORE=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 const DOC_TIMEOUT=4000;
 
@@ -54,5 +55,38 @@ self.addEventListener('fetch',e=>{
     const fresh=await network;
     if(fresh) return fresh;
     return (await cache.match('./index.html'))||new Response('Offline',{status:503,headers:{'Content-Type':'text/plain'}});
+  })());
+});
+
+/* ---- reminders ---- */
+
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; }
+  catch(err){ d = { title: 'Türkçe Antrenörü', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Türkçe Antrenörü', {
+    body:  d.body || '',
+    icon:  './icon-192.png',
+    badge: './icon-192.png',
+    tag:   d.tag || 'general',
+    renotify: false,
+    data:  { url: d.url || '' }
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const hash = (e.notification.data && e.notification.data.url) || '';
+  const target = self.registration.scope + (hash || '');
+  e.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
+    for(const c of clients){
+      if(c.url.indexOf(self.registration.scope) === 0){
+        /* already open: bring it forward, and jump to the right screen if asked */
+        if(hash && 'navigate' in c){ try { await c.navigate(target); } catch(err){} }
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(target);
   })());
 });
