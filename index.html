@@ -217,6 +217,7 @@ const GOAL=12;                     // günlük hedef kart sayısı
 const INTERVALS=[0,1,2,4,8,16,32]; // kutu -> kaç gün sonra
 
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const dayNum=()=>Math.floor(new Date().setHours(0,0,0,0)/864e5);
 
 let S={words:{},deck:[],streak:0,lastDay:null,xp:0,doneDate:null,doneCount:0,best:0};
@@ -226,14 +227,21 @@ function load(){
   if(!S.deck||!S.deck.length) S.deck=SEED.map(a=>({w:a[0],tr:a[1],ex:a[2]||'',exTr:a[3]||''}));
   S.deck.forEach(w=>{ if(!S.words[w.w]) S.words[w.w]={box:0,due:0,seen:0,wrong:0}; });
   if(S.doneDate!==today()){S.doneCount=0;S.doneDate=today();}
+  expireStreak();
   save();
+}
+
+/* A streak is only alive if the last practice day was today or yesterday.
+   Without this the home screen keeps showing the number from the last day
+   they practised, however long ago that was. */
+function expireStreak(){
+  if(S.lastDay && S.lastDay!==today() && S.lastDay!==yest()) S.streak=0;
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
 function bumpStreak(){
   const t=today(); if(S.lastDay===t) return;
-  const y=new Date(Date.now()-864e5); const ys=y.getFullYear()+'-'+String(y.getMonth()+1).padStart(2,'0')+'-'+String(y.getDate()).padStart(2,'0');
-  S.streak = (S.lastDay===ys) ? S.streak+1 : 1;
+  S.streak = (S.lastDay===yest()) ? S.streak+1 : 1;
   S.lastDay=t; if(S.streak>S.best)S.best=S.streak; save();
 }
 
@@ -1069,7 +1077,12 @@ const NOTES_TITLE='Öğretmeninden not';
 load(); home(); syncNow();
 
 document.addEventListener('visibilitychange', function(){
-  if(!document.hidden && Date.now()-LAST_SYNC > 30000) syncNow();
+  if(document.hidden) return;
+  if(S.doneDate!==today()){ S.doneCount=0; S.doneDate=today(); }
+  expireStreak();
+  save();
+  if(VIEW==='home') home();
+  if(Date.now()-LAST_SYNC > 30000) syncNow();
 });
 window.addEventListener('online', function(){ syncNow(); });
 
