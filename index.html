@@ -1143,7 +1143,8 @@ function syncPush(){
     fetch(SYNC_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({key:c.key,action:'push',student:c.student,
         streak:S.streak,xp:S.xp,learned:learnedCount(),deck:S.deck.length,
-        progress:{words:S.words,deck:S.deck.map(function(w){return {w:w.w,tr:w.tr};}),tasks:S.tasks||{}}})}).catch(function(){});
+        progress:{words:S.words,deck:S.deck.map(function(w){return {w:w.w,tr:w.tr};}),tasks:S.tasks||{},
+          lastDay:S.lastDay||null,doneDate:S.doneDate||null,doneCount:S.doneCount||0}})}).catch(function(){});
   }catch(e){}
 }
 function syncToast2(t){
