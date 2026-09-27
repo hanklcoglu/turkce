@@ -589,8 +589,19 @@ function copyEl(id,btnId,label){
   const b=document.getElementById(btnId); b.textContent='✓ Kopyalandı';
   setTimeout(()=>b.textContent=label,1600);
 }
+/* A Home Screen app on iPhone has its own storage and never sees the #k= link,
+   so the student can paste their personal link here to link this device. */
+function linkFromPaste(v){
+  const i=v.indexOf('#'); const q=i>-1?v.slice(i+1):v;
+  if(!/(^|&)k=/.test(q)) return false;
+  const p=new URLSearchParams(q); const k=p.get('k'); if(!k) return false;
+  try{ localStorage.setItem('sync_key',k); localStorage.setItem(SYNC_SLOT,p.get('s')||SYNC_STUDENT_DEFAULT); }catch(e){}
+  document.getElementById('bin').value='';
+  alert("Bağlandı ✅ Öğretmeninin gönderdikleri şimdi geliyor."); syncNow(); return true;
+}
 function restoreBackup(){
   const v=document.getElementById('bin').value.trim(); if(!v)return;
+  if(linkFromPaste(v))return;
   let d; try{d=b64d(v)}catch(e){alert('Yedek kodu okunamadı. Kodun tamamını yapıştır.');return;}
   if(!d||!d.words||!d.deck){alert('Bu bir yedek kodu değil.');return;}
   if(!confirm('Bu yedek şu anki ilerlemenin yerine geçecek. Devam edilsin mi?'))return;
@@ -620,7 +631,7 @@ function settingsView(){
   <textarea id="bout" class="hidden" readonly style="min-height:80px;font-size:11px"></textarea>
   <button class="btn ghost hidden" id="bcopy" onclick="copyEl('bout','bcopy','📋 Yedeği kopyala')">📋 Yedeği kopyala</button>
   <div style="height:14px"></div>
-  <textarea id="bin" placeholder="SAVE1-...  (yedeğini buraya yapıştır)" style="min-height:80px"></textarea>
+  <textarea id="bin" placeholder="SAVE1-...  (yedeğini ya da öğretmeninin bağlantısını buraya yapıştır)" style="min-height:80px"></textarea>
   <div style="height:10px"></div>
   <button class="btn ghost" onclick="restoreBackup()">Yedeği geri yükle</button>
 
@@ -702,7 +713,7 @@ const TS={title:'\u00d6devler', empty:'Hen\u00fcz \u00f6dev yok. \u00d6\u011fret
   writeHere:'Cevab\u0131n\u0131 yaz\u2026',
   confirmBlank:function(n){return n+' soru bo\u015f. Yine de g\u00f6nderilsin mi?';},
   refresh:'\ud83d\udd04 \u00d6devleri kontrol et', checking:'Kontrol ediliyor\u2026',
-  noKey:'Bu cihaz \u00f6\u011fretmenine ba\u011fl\u0131 de\u011fil. \u00d6\u011fretmeninden sana \u00f6zel ba\u011flant\u0131y\u0131 iste ve bir kere a\u00e7.',
+  noKey:'Bu cihaz \u00f6\u011fretmenine ba\u011fl\u0131 de\u011fil. Öğretmeninden sana özel bağlantıyı iste, sonra Ayarlar\u2019daki yedek kutusuna yapıştır.',
   offline:'\u0130nternet ba\u011flant\u0131s\u0131 yok. Ba\u011flan\u0131nca \u00f6devlerin gelecek.',
   errMsg:'Sunucuya ula\u015f\u0131lamad\u0131. Birka\u00e7 saniye sonra tekrar dene.',
   emptyFor:function(){ return SYNC_STATE==='nokey'?TS.noKey : SYNC_STATE==='offline'?TS.offline
